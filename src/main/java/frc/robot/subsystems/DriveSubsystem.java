@@ -16,6 +16,8 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.DriveConstants;
 import java.util.List;
@@ -48,9 +50,7 @@ public class DriveSubsystem extends SubsystemBase {
           DriveConstants.kBackRightChassisAngularOffset);
 
   // The gyro sensor
-  private final Pigeon2 m_gyro = new Pigeon2(0, "rio");
-
-  Rotation2d angle = m_gyro.getRotation2d();
+  private final Pigeon2 m_gyro = new Pigeon2(0);
 
   // Odometry class for tracking robot pose
   SwerveDriveOdometry m_odometry =
@@ -63,6 +63,9 @@ public class DriveSubsystem extends SubsystemBase {
             m_rearLeft.getPosition(),
             m_rearRight.getPosition()
           });
+
+  // Boolean used to enable / disable slow mode
+  private boolean slowMode = false;
 
   /** Creates a new DriveSubsystem. */
   public DriveSubsystem() {
@@ -119,9 +122,9 @@ public class DriveSubsystem extends SubsystemBase {
    */
   public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
     // Convert the commanded speeds into the correct units for the drivetrain
-    double xSpeedDelivered = xSpeed * DriveConstants.kMaxSpeedMetersPerSecond;
-    double ySpeedDelivered = ySpeed * DriveConstants.kMaxSpeedMetersPerSecond;
-    double rotDelivered = rot * DriveConstants.kMaxAngularSpeed;
+    double xSpeedDelivered = xSpeed * DriveConstants.kMaxSpeedMetersPerSecond * (slowMode ? DriveConstants.kSlowModeSpeedPercentage : 1);
+    double ySpeedDelivered = ySpeed * DriveConstants.kMaxSpeedMetersPerSecond * (slowMode ? DriveConstants.kSlowModeSpeedPercentage : 1);
+    double rotDelivered = rot * DriveConstants.kMaxAngularSpeed * (slowMode ? DriveConstants.kSlowModeSpeedPercentage : 1);
 
     var swerveModuleStates =
         DriveConstants.kDriveKinematics.toSwerveModuleStates(
@@ -135,6 +138,21 @@ public class DriveSubsystem extends SubsystemBase {
     m_frontRight.setDesiredState(swerveModuleStates[1]);
     m_rearLeft.setDesiredState(swerveModuleStates[2]);
     m_rearRight.setDesiredState(swerveModuleStates[3]);
+  }
+
+  /** Enables the robot's slow mode */
+  public Command enableSlowMode() {
+    return Commands.runOnce(() -> { slowMode = true; });
+  }
+
+  /** Disables the robot's slow mode */
+  public Command disableSlowMode() {
+    return Commands.runOnce(() -> { slowMode = false; });
+  }
+
+  /** Zeroes the heading of the robot. */
+  public Command zeroHeading() {
+    return Commands.runOnce(() -> { m_gyro.reset(); });
   }
 
   /** Drives the robot relative to the head of the robot */
@@ -198,30 +216,5 @@ public class DriveSubsystem extends SubsystemBase {
     m_rearLeft.resetEncoders();
     m_frontRight.resetEncoders();
     m_rearRight.resetEncoders();
-  }
-
-  /** Zeroes the heading of the robot. */
-  public void zeroHeading() {
-    m_gyro.reset();
-  }
-
-  /**
-   * Returns the heading of the robot.
-   *
-   * @return the robot's heading in degrees, from -180 to 180
-   */
-  public double getHeading() {
-    return m_gyro.getRotation2d().getDegrees();
-  }
-
-  /**
-   * Returns the turn rate of the robot.
-   *
-   * @return The turn rate of the robot, in degrees per second
-   */
-  public double getTurnRate() {
-    // return m_gyro.getRate(IMUAxis.kZ) * (DriveConstants.kGyroReversed ? -1.0 : 1.0);
-    return m_gyro.getAngularVelocityZWorld().getValueAsDouble()
-        * (DriveConstants.kGyroReversed ? -1.0 : 1.0);
   }
 }
