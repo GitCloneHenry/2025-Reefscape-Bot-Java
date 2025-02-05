@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj2.command.RunCommand;
 import frc.robot.Constants.AutoConstants;
 import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.ModuleConstants;
+import frc.robot.Constants.VisionConstants;
 import frc.robot.RobotContainer;
 import frc.robot.subsystems.DriveSubsystem;
 import java.util.List;
@@ -75,15 +76,20 @@ public class TagCenteringCommand extends Command {
       return;
     }
 
-    Transform3d aprilTagPose = bestTarget.getBestCameraToTarget();
-    double aprilTagRotation = -aprilTagPose.getRotation().getZ() + Math.PI;
-
+    Transform3d cameraToTag = bestTarget.getBestCameraToTarget();
+    Transform3d robotToTag = VisionConstants.robotToCamera.plus(cameraToTag);
+    Translation2d tagOffset = robotToTag.getTranslation().toTranslation2d();
+    Translation2d targetPosition = driveSubsystem.getPose().getTranslation().plus(
+      tagOffset.rotateBy(driveSubsystem.getPose().getRotation())
+    );  
+    Rotation2d targetRotation = Rotation2d.fromRadians(
+      Math.atan2(tagOffset.getY(), tagOffset.getX())
+    ).plus(driveSubsystem.getPose().getRotation());
+    
     List<Waypoint> waypoints =
         PathPlannerPath.waypointsFromPoses(
             this.driveSubsystem.getPose(),
-            new Pose2d(
-                new Translation2d(aprilTagPose.getX(), aprilTagPose.getY()),
-                Rotation2d.fromRadians(aprilTagRotation)));
+            new Pose2d(targetPosition, targetRotation));
 
     PathConstraints pathConstraints =
         new PathConstraints(
@@ -92,7 +98,7 @@ public class TagCenteringCommand extends Command {
             AutoConstants.kMaxAngularSpeedRadiansPerSecond,
             AutoConstants.kMaxAngularSpeedRadiansPerSecondSquared);
 
-    GoalEndState goalEndState = new GoalEndState(0.0, Rotation2d.fromRadians(aprilTagRotation));
+    GoalEndState goalEndState = new GoalEndState(0.0, targetRotation);
 
     PathPlannerPath path = new PathPlannerPath(waypoints, pathConstraints, null, goalEndState);
 
@@ -150,6 +156,10 @@ public class TagCenteringCommand extends Command {
 
   @Override
   public void end(boolean interrupted) {
+    if (followPathCommand != null) {
+      followPathCommand.cancel();
+    }
+
     driveSubsystem.setDefaultCommand(defaultDriveCommand);
   }
 }

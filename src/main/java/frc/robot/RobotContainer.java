@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OIConstants;
+import frc.robot.commands.TagCenteringCommand;
 import frc.robot.subsystems.DriveSubsystem;
 import org.photonvision.PhotonCamera;
 
@@ -86,6 +87,10 @@ public class RobotContainer {
     Trigger zeroHeadingTrigger = m_driverController.b();
 
     zeroHeadingTrigger.onTrue(m_robotDrive.zeroHeading());
+
+    Trigger centerOnTagTrigger = m_driverController.y();
+
+    centerOnTagTrigger.onTrue(new TagCenteringCommand(this));
   }
 
   /**
